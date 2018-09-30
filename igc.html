@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Testpage</title>
+</head>
+<body>
+    {{define "gliderInfo"}}
+    <h1>{{.pilot}}</h1>
+    <h1>{{.gliderType}}</h1>
+    <h1>{{.date}}</h1>
+    {{end}}
+    <form method="POST" enctype="application/json">
+        <label>URL: </label>
+        <input type="text" name="url">
+        <input type="submit" value="Send">
+    </form>
+</body>
+</html>
