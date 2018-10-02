@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path"
 	"regexp"
+	"strings"
 	"time"
 
 	igc "github.com/marni/goigc"
@@ -197,12 +198,38 @@ func apiIgcIDHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func apiIgcIDFieldHandler(w http.ResponseWriter, r *http.Request) {
+
+	pathArray := strings.Split(r.URL.Path, "/") // split the URL Path into chunks, whenever there's a "/"
+	field := pathArray[len(pathArray)-1]        // The part after the last "/", is the field
+	uniqueID := pathArray[len(pathArray)-2]     // The part after the second to last "/", is the unique ID
+
+	trackSliceID := getTrackIndex(uniqueID)
+
+	if trackSliceID != -1 { // Check whether the ID is different from -1
+
+		something := map[string]string{ // Map the field to one of the Track struct attributes in the igcFiles slice
+			"pilot":        igcFiles[trackSliceID].Pilot,
+			"glider":       igcFiles[trackSliceID].GliderType,
+			"glider_id":    igcFiles[trackSliceID].GliderID,
+			"track_length": "DUMMY INFO:4127",
+			"H_date":       igcFiles[trackSliceID].Date.String(),
+		}
+
+		response := something[field] // This will work because the RegEx checks whether the name is written correctly
+		fmt.Fprintf(w, response)
+	} else {
+		w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
+	}
+}
+
 func urlRouter(w http.ResponseWriter, r *http.Request) {
 
 	urlMap := map[string]func(http.ResponseWriter, *http.Request){ // A map of accepted URL RegEx patterns
 		"^/igcinfo/api/$":                      apiHandler,
 		"^/igcinfo/api/igc$":                   apiIgcHandler,
 		"^/igcinfo/api/igc/[a-zA-Z0-9]{3,10}$": apiIgcIDHandler,
+		"^/igcinfo/api/igc/[a-zA-Z0-9]{3,10}/(pilot|glider|glider_id|track_length|H_date)$": apiIgcIDFieldHandler,
 	}
 
 	result := regexMatches(r.URL.Path, urlMap) // Perform the RegEx check to see if any pattern matches
@@ -210,7 +237,6 @@ func urlRouter(w http.ResponseWriter, r *http.Request) {
 	if result != nil { // If a function is returned, call that handler function
 		result(w, r)
 	} else {
-		fmt.Println(r.URL.Path, "No matching pattern found")
 		w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
 	}
 }
