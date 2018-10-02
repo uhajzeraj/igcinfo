@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path"
+	"regexp"
 	"time"
 
 	igc "github.com/marni/goigc"
@@ -15,6 +17,8 @@ import (
 // http://skypolaris.org/wp-content/uploads/IGS%20Files/Jarez%20to%20Senegal.igc
 // http://skypolaris.org/wp-content/uploads/IGS%20Files/Boavista%20Medellin.igc
 // http://skypolaris.org/wp-content/uploads/IGS%20Files/Medellin%20Guatemala.igc
+
+const urlRoot = "/igcinfo/"
 
 // Slice where the igcFiles are in-memory stored
 var igcFiles []igc.Track
@@ -32,14 +36,80 @@ func stringInSlice(uniqueID string) bool {
 	return false
 }
 
-func stringInMap(url string, urlMap map[string]func(http.ResponseWriter, *http.Request)) bool {
-	for mapURL := range urlMap {
-		if mapURL == url {
-			return true
+// Get the index of the track in the igcFiles slice, if it is there
+func getTrackIndex(uniqueID string) int {
+	for index, trackInArray := range igcFiles {
+		if trackInArray.UniqueID == uniqueID {
+			return index
+		}
+	}
+	return -1
+}
+
+// ISO8601 duration parsing function
+func parseTimeDifference(timeDifference int) string {
+
+	result := "P" // Different time intervals are attached to this, if they are != 0
+
+	// Formulas for calculating different time intervals in seconds
+	timeLeft := timeDifference
+	years := timeDifference / 31557600
+	timeLeft -= years * 31557600
+	months := timeLeft / 2592000
+	timeLeft -= months * 2592000
+	weeks := timeLeft / 604800
+	timeLeft -= weeks * 604800
+	days := timeLeft / 86400
+	timeLeft -= days * 86400
+	hours := timeLeft / 3600
+	timeLeft -= hours * 3600
+	minutes := timeLeft / 60
+	timeLeft -= minutes * 60
+	seconds := timeLeft
+
+	// Add time invervals to the result only if they are different form 0
+	if years != 0 {
+		result += fmt.Sprintf("Y%d", years)
+	}
+	if months != 0 {
+		result += fmt.Sprintf("M%d", months)
+	}
+	if weeks != 0 {
+		result += fmt.Sprintf("W%d", weeks)
+	}
+	if days != 0 {
+		result += fmt.Sprintf("D%d", days)
+	}
+
+	if hours != 0 || minutes != 0 || seconds != 0 { // Check in case time intervals are 0
+		result += "T"
+		if hours != 0 {
+			result += fmt.Sprintf("H%d", hours)
+		}
+		if minutes != 0 {
+			result += fmt.Sprintf("M%d", minutes)
+		}
+		if seconds != 0 {
+			result += fmt.Sprintf("S%d", seconds)
 		}
 	}
 
-	return false
+	return result
+}
+
+// Check if any of the regex patterns supplied in the map parameter match the string parameter
+func regexMatches(url string, urlMap map[string]func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	for mapURL := range urlMap {
+		res, err := regexp.MatchString(mapURL, url)
+		if err != nil {
+			return nil
+		}
+
+		if res { // If the pattern matching returns true, return the function
+			return urlMap[mapURL]
+		}
+	}
+	return nil
 }
 
 func apiIgcHandler(w http.ResponseWriter, r *http.Request) {
@@ -107,76 +177,45 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, response)
 }
 
-func parseTimeDifference(timeDifference int) string {
+func apiIgcIDHandler(w http.ResponseWriter, r *http.Request) {
+	urlID := path.Base(r.URL.Path) // returns the part after the last '/' in the url
 
-	result := "P" // Different time intervals are attached to this, if they are != 0
+	trackSliceID := getTrackIndex(urlID)
+	if trackSliceID != -1 { // Check whether the ID is different from -1
+		w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
+		response := "{"
+		response += "\"H_date\": " + "\"" + igcFiles[trackSliceID].Date.String() + "\","
+		response += "\"pilot\": " + "\"" + igcFiles[trackSliceID].Pilot + "\","
+		response += "\"glider\": " + "\"" + igcFiles[trackSliceID].GliderType + "\","
+		response += "\"glider_id\": " + "\"" + igcFiles[trackSliceID].GliderID + "\","
+		response += "\"track_length\": " + "\"" + "DUMMY INFO:4127" + "\"" // TO-DO, calculate the track length?
+		response += "}"
 
-	// Formulas for calculating different time intervals in seconds
-	timeLeft := timeDifference
-	years := timeDifference / 31557600
-	timeLeft -= years * 31557600
-	months := timeLeft / 2592000
-	timeLeft -= months * 2592000
-	weeks := timeLeft / 604800
-	timeLeft -= weeks * 604800
-	days := timeLeft / 86400
-	timeLeft -= days * 86400
-	hours := timeLeft / 3600
-	timeLeft -= hours * 3600
-	minutes := timeLeft / 60
-	timeLeft -= minutes * 60
-	seconds := timeLeft
-
-	// Add time invervals to the result only if they are different form 0
-	if years != 0 {
-		result += fmt.Sprintf("Y%d", years)
-	}
-	if months != 0 {
-		result += fmt.Sprintf("M%d", months)
-	}
-	if weeks != 0 {
-		result += fmt.Sprintf("W%d", weeks)
-	}
-	if days != 0 {
-		result += fmt.Sprintf("D%d", days)
-	}
-
-	if hours != 0 || minutes != 0 || seconds != 0 { // Check in case time intervals are 0
-		result += "T"
-		if hours != 0 {
-			result += fmt.Sprintf("H%d", hours)
-		}
-		if minutes != 0 {
-			result += fmt.Sprintf("M%d", minutes)
-		}
-		if seconds != 0 {
-			result += fmt.Sprintf("S%d", seconds)
-		}
-	}
-
-	return result
-}
-
-func urlRouter(w http.ResponseWriter, r *http.Request) {
-
-	// **TO DO** Change the static URLs to RegEx patterns
-	urlMap := map[string]func(http.ResponseWriter, *http.Request){ // A map of accepted URLs
-		"/igcinfo/api/":    apiHandler,
-		"/igcinfo/api/igc": apiIgcHandler,
-	}
-
-	if stringInMap(r.URL.Path, urlMap) { // Check if the request is in the map
-		urlMap[r.URL.Path](w, r) // If it is, redirect to that handler
+		fmt.Fprintf(w, response)
 	} else {
 		w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
 	}
 }
 
-// w.WriteHeader(status)
+func urlRouter(w http.ResponseWriter, r *http.Request) {
+
+	urlMap := map[string]func(http.ResponseWriter, *http.Request){ // A map of accepted URL RegEx patterns
+		"^/igcinfo/api/$":                      apiHandler,
+		"^/igcinfo/api/igc$":                   apiIgcHandler,
+		"^/igcinfo/api/igc/[a-zA-Z0-9]{3,10}$": apiIgcIDHandler,
+	}
+
+	result := regexMatches(r.URL.Path, urlMap) // Perform the RegEx check to see if any pattern matches
+
+	if result != nil { // If a function is returned, call that handler function
+		result(w, r)
+	} else {
+		fmt.Println(r.URL.Path, "No matching pattern found")
+		w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
+	}
+}
 
 func main() {
-	http.HandleFunc("/", urlRouter)
-	// http.HandleFunc("/igcinfo/api/", apiHandler)
-	// http.HandleFunc("/igcinfo/api/igc", apiIgcHandler)
+	http.HandleFunc("/", urlRouter) // Handle all the request via the urlRouter function
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
