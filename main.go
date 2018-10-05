@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -98,6 +99,20 @@ func parseTimeDifference(timeDifference int) string {
 	return result
 }
 
+// Calculate the total distance of the track
+func calculateTotalDistance(track igc.Track) string {
+
+	totalDistance := 0.0
+
+	// For each point of the track, calculate the distance between 2 points in the Point array
+	for i := 0; i < len(track.Points)-1; i++ {
+		totalDistance += track.Points[i].Distance(track.Points[i+1])
+	}
+
+	// Parse it to a string value
+	return strconv.FormatFloat(totalDistance, 'f', 2, 64)
+}
+
 // Check if any of the regex patterns supplied in the map parameter match the string parameter
 func regexMatches(url string, urlMap map[string]func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	for mapURL := range urlMap {
@@ -184,12 +199,13 @@ func apiIgcIDHandler(w http.ResponseWriter, r *http.Request) {
 	trackSliceID := getTrackIndex(urlID)
 	if trackSliceID != -1 { // Check whether the ID is different from -1
 		w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
+
 		response := "{"
 		response += "\"H_date\": " + "\"" + igcFiles[trackSliceID].Date.String() + "\","
 		response += "\"pilot\": " + "\"" + igcFiles[trackSliceID].Pilot + "\","
 		response += "\"glider\": " + "\"" + igcFiles[trackSliceID].GliderType + "\","
 		response += "\"glider_id\": " + "\"" + igcFiles[trackSliceID].GliderID + "\","
-		response += "\"track_length\": " + "\"" + "DUMMY INFO:4127" + "\"" // TO-DO, calculate the track length?
+		response += "\"track_length\": " + "\"" + calculateTotalDistance(igcFiles[trackSliceID]) + "\"" // TO-DO, calculate the track length?
 		response += "}"
 
 		fmt.Fprintf(w, response)
@@ -212,7 +228,7 @@ func apiIgcIDFieldHandler(w http.ResponseWriter, r *http.Request) {
 			"pilot":        igcFiles[trackSliceID].Pilot,
 			"glider":       igcFiles[trackSliceID].GliderType,
 			"glider_id":    igcFiles[trackSliceID].GliderID,
-			"track_length": "DUMMY INFO:4127",
+			"track_length": calculateTotalDistance(igcFiles[trackSliceID]),
 			"H_date":       igcFiles[trackSliceID].Date.String(),
 		}
 
