@@ -20,8 +20,6 @@ import (
 // http://skypolaris.org/wp-content/uploads/IGS%20Files/Boavista%20Medellin.igc
 // http://skypolaris.org/wp-content/uploads/IGS%20Files/Medellin%20Guatemala.igc
 
-const urlRoot = "/igcinfo/"
-
 // Slice where the igcFiles are in-memory stored
 var igcFiles []igc.Track
 
