@@ -265,5 +265,5 @@ func urlRouter(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/", urlRouter) // Handle all the request via the urlRouter function
-	log.Fatal(http.ListenAndServe(":443", nil))
+	log.Fatal(http.ListenAndServe("https://imt2681-igcinfo.herokuapp.com", nil))
 }
