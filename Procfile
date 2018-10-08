@@ -1,1 +1,1 @@
-web: igcinfo
+web: go run main.go
