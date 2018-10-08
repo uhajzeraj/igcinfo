@@ -20,16 +20,25 @@ import (
 // http://skypolaris.org/wp-content/uploads/IGS%20Files/Boavista%20Medellin.igc
 // http://skypolaris.org/wp-content/uploads/IGS%20Files/Medellin%20Guatemala.igc
 
-// Slice where the igcFiles are in-memory stored
-var igcFiles []igc.Track
+// URLTrack - Keep track of the url used for adding the igc file
+type URLTrack struct {
+	trackName string
+	track     igc.Track
+}
+
+// Keep count of the number of igc files added to the system
+var igcFileCount = 1
+
+// Map where the igcFiles are in-memory stored
+var igcFiles = make(map[string]URLTrack) // map["URL"]urlTrack
 
 // Unix timestamp when the service started
 var timeStarted = int(time.Now().Unix())
 
-// Check if uniqueID is in the igcFiles slice
-func stringInSlice(uniqueID string) bool {
-	for _, trackInArray := range igcFiles {
-		if trackInArray.UniqueID == uniqueID {
+// Check if url is in the urlTrack map
+func urlInMap(url string) bool {
+	for urlInMap := range igcFiles {
+		if urlInMap == url {
 			return true
 		}
 	}
@@ -37,13 +46,13 @@ func stringInSlice(uniqueID string) bool {
 }
 
 // Get the index of the track in the igcFiles slice, if it is there
-func getTrackIndex(uniqueID string) int {
-	for index, trackInArray := range igcFiles {
-		if trackInArray.UniqueID == uniqueID {
-			return index
+func getTrackIndex(trackName string) string {
+	for url, track := range igcFiles {
+		if track.trackName == trackName {
+			return url
 		}
 	}
-	return -1
+	return ""
 }
 
 // ISO8601 duration parsing function
@@ -140,19 +149,15 @@ func apiIgcHandler(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 
-		// Check if track slice contains the uniqueID
-
-		if len(igcFiles) != 0 { // In case the slice is empty, just add the track
-			if !stringInSlice(track.UniqueID) { // If the uniqueID is not in the slice, add it
-				igcFiles = append(igcFiles, track) // Append the result to igcFiles slice
-			}
-
-		} else {
-			igcFiles = append(igcFiles, track) // Append the result to igcFiles slice
+		// Check if track map contains the url
+		// Or if the map is empty
+		if !urlInMap(data["url"]) || len(igcFiles) == 0 {
+			igcFiles[data["url"]] = URLTrack{"igc" + strconv.Itoa(igcFileCount), track} // Add the result to igcFiles map
+			igcFileCount++                                                              // Increase the count
 		}
 
 		response := "{"
-		response += "\"id\": " + "\"" + track.UniqueID + "\""
+		response += "\"id\": " + "\"" + igcFiles[data["url"]].trackName + "\""
 		response += "}"
 
 		w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
@@ -161,12 +166,15 @@ func apiIgcHandler(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == "GET" { // If the method is GET
 		w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
 
+		x := 0 // Just some numeric iterator
+
 		response := "["
-		for i := range igcFiles { // Get all the IDs of .igc files stored in the igcFiles array
-			if i != len(igcFiles)-1 { // If it's the last item in the array, don't add the ","
-				response += "\"" + igcFiles[i].UniqueID + "\","
+		for i := range igcFiles { // Get all the IDs of .igc files stored in the igcFiles map
+			if x != len(igcFiles)-1 { // If it's the last item in the array, don't add the ","
+				response += "\"" + igcFiles[i].trackName + "\","
+				x++ // Incerement the iterator
 			} else {
-				response += "\"" + igcFiles[i].UniqueID + "\""
+				response += "\"" + igcFiles[i].trackName + "\""
 			}
 		}
 		response += "]"
@@ -194,16 +202,16 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 func apiIgcIDHandler(w http.ResponseWriter, r *http.Request) {
 	urlID := path.Base(r.URL.Path) // returns the part after the last '/' in the url
 
-	trackSliceID := getTrackIndex(urlID)
-	if trackSliceID != -1 { // Check whether the ID is different from -1
+	trackSliceURL := getTrackIndex(urlID)
+	if trackSliceURL != "" { // Check whether the url is different from an empty string
 		w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
 
 		response := "{"
-		response += "\"H_date\": " + "\"" + igcFiles[trackSliceID].Date.String() + "\","
-		response += "\"pilot\": " + "\"" + igcFiles[trackSliceID].Pilot + "\","
-		response += "\"glider\": " + "\"" + igcFiles[trackSliceID].GliderType + "\","
-		response += "\"glider_id\": " + "\"" + igcFiles[trackSliceID].GliderID + "\","
-		response += "\"track_length\": " + "\"" + calculateTotalDistance(igcFiles[trackSliceID]) + "\"" // TO-DO, calculate the track length?
+		response += "\"H_date\": " + "\"" + igcFiles[trackSliceURL].track.Date.String() + "\","
+		response += "\"pilot\": " + "\"" + igcFiles[trackSliceURL].track.Pilot + "\","
+		response += "\"glider\": " + "\"" + igcFiles[trackSliceURL].track.GliderType + "\","
+		response += "\"glider_id\": " + "\"" + igcFiles[trackSliceURL].track.GliderID + "\","
+		response += "\"track_length\": " + "\"" + calculateTotalDistance(igcFiles[trackSliceURL].track) + "\"" // TO-DO, calculate the track length?
 		response += "}"
 
 		fmt.Fprintf(w, response)
@@ -218,16 +226,16 @@ func apiIgcIDFieldHandler(w http.ResponseWriter, r *http.Request) {
 	field := pathArray[len(pathArray)-1]        // The part after the last "/", is the field
 	uniqueID := pathArray[len(pathArray)-2]     // The part after the second to last "/", is the unique ID
 
-	trackSliceID := getTrackIndex(uniqueID)
+	trackSliceURL := getTrackIndex(uniqueID)
 
-	if trackSliceID != -1 { // Check whether the ID is different from -1
+	if trackSliceURL != "" { // Check whether the url is different from an empty string
 
 		something := map[string]string{ // Map the field to one of the Track struct attributes in the igcFiles slice
-			"pilot":        igcFiles[trackSliceID].Pilot,
-			"glider":       igcFiles[trackSliceID].GliderType,
-			"glider_id":    igcFiles[trackSliceID].GliderID,
-			"track_length": calculateTotalDistance(igcFiles[trackSliceID]),
-			"H_date":       igcFiles[trackSliceID].Date.String(),
+			"pilot":        igcFiles[trackSliceURL].track.Pilot,
+			"glider":       igcFiles[trackSliceURL].track.GliderType,
+			"glider_id":    igcFiles[trackSliceURL].track.GliderID,
+			"track_length": calculateTotalDistance(igcFiles[trackSliceURL].track),
+			"H_date":       igcFiles[trackSliceURL].track.Date.String(),
 		}
 
 		response := something[field] // This will work because the RegEx checks whether the name is written correctly
