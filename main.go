@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"os"
 
 	igc "github.com/marni/goigc"
 )
@@ -270,5 +271,5 @@ func urlRouter(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/", urlRouter) // Handle all the request via the urlRouter function
-	log.Fatal(http.ListenAndServe(":5000", nil))
+	log.Fatal(http.ListenAndServe(":" + os.Getenv("PORT"), nil))
 }
