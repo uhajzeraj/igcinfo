@@ -246,15 +246,10 @@ func apiIgcIDFieldHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func everythingHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Hello, world!")
-}
-
 func urlRouter(w http.ResponseWriter, r *http.Request) {
 
 	urlMap := map[string]func(http.ResponseWriter, *http.Request){ // A map of accepted URL RegEx patterns
-		"^/$": 					everythingHandler,
-		"^/igcinfo/api/$":                      apiHandler,
+		"^/igcinfo/api$":                      apiHandler,
 		"^/igcinfo/api/igc$":                   apiIgcHandler,
 		"^/igcinfo/api/igc/[a-zA-Z0-9]{3,10}$": apiIgcIDHandler,
 		"^/igcinfo/api/igc/[a-zA-Z0-9]{3,10}/(pilot|glider|glider_id|track_length|H_date)$": apiIgcIDFieldHandler,
