@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"regexp"
 	"strconv"
@@ -259,5 +260,5 @@ func urlRouter(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/", urlRouter) // Handle all the request via the urlRouter function
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), nil))
 }
