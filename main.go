@@ -175,41 +175,54 @@ func apiIgcHandler(w http.ResponseWriter, r *http.Request) {
 		response += "]"
 
 		fmt.Fprintf(w, response)
+	} else {
+		w.WriteHeader(http.StatusNotFound) // If it isn't any of those, send a 404 Not Found status
 	}
 }
 
 func apiHandler(w http.ResponseWriter, r *http.Request) {
 
-	w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
+	// The request has to be of GET type
+	if r.Method == "GET" {
+		w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
 
-	timeNow := int(time.Now().Unix()) // Unix timestamp when the handler was called
+		timeNow := int(time.Now().Unix()) // Unix timestamp when the handler was called
 
-	iso8601duration := parseTimeDifference(timeNow - timeStarted) // Calculate the time elapsed by subtracting the times
+		iso8601duration := parseTimeDifference(timeNow - timeStarted) // Calculate the time elapsed by subtracting the times
 
-	response := "{"
-	response += "\"uptime\": \"" + iso8601duration + "\","
-	response += "\"info\": \"Service for IGC tracks.\","
-	response += "\"version\": \"v1\""
-	response += "}"
-	fmt.Fprintln(w, response)
+		response := "{"
+		response += "\"uptime\": \"" + iso8601duration + "\","
+		response += "\"info\": \"Service for IGC tracks.\","
+		response += "\"version\": \"v1\""
+		response += "}"
+		fmt.Fprintln(w, response)
+	} else {
+		w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
+	}
 }
 
 func apiIgcIDHandler(w http.ResponseWriter, r *http.Request) {
-	urlID := path.Base(r.URL.Path) // returns the part after the last '/' in the url
 
-	trackSliceURL := getTrackIndex(urlID)
-	if trackSliceURL != "" { // Check whether the url is different from an empty string
-		w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
+	// The request has to be of GET type
+	if r.Method == "GET" {
+		urlID := path.Base(r.URL.Path) // returns the part after the last '/' in the url
 
-		response := "{"
-		response += "\"H_date\": " + "\"" + igcFiles[trackSliceURL].track.Date.String() + "\","
-		response += "\"pilot\": " + "\"" + igcFiles[trackSliceURL].track.Pilot + "\","
-		response += "\"glider\": " + "\"" + igcFiles[trackSliceURL].track.GliderType + "\","
-		response += "\"glider_id\": " + "\"" + igcFiles[trackSliceURL].track.GliderID + "\","
-		response += "\"track_length\": " + "\"" + calculateTotalDistance(igcFiles[trackSliceURL].track) + "\"" // TO-DO, calculate the track length?
-		response += "}"
+		trackSliceURL := getTrackIndex(urlID)
+		if trackSliceURL != "" { // Check whether the url is different from an empty string
+			w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
 
-		fmt.Fprintf(w, response)
+			response := "{"
+			response += "\"H_date\": " + "\"" + igcFiles[trackSliceURL].track.Date.String() + "\","
+			response += "\"pilot\": " + "\"" + igcFiles[trackSliceURL].track.Pilot + "\","
+			response += "\"glider\": " + "\"" + igcFiles[trackSliceURL].track.GliderType + "\","
+			response += "\"glider_id\": " + "\"" + igcFiles[trackSliceURL].track.GliderID + "\","
+			response += "\"track_length\": " + "\"" + calculateTotalDistance(igcFiles[trackSliceURL].track) + "\"" // TO-DO, calculate the track length?
+			response += "}"
+
+			fmt.Fprintf(w, response)
+		} else {
+			w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
+		}
 	} else {
 		w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
 	}
@@ -217,24 +230,29 @@ func apiIgcIDHandler(w http.ResponseWriter, r *http.Request) {
 
 func apiIgcIDFieldHandler(w http.ResponseWriter, r *http.Request) {
 
-	pathArray := strings.Split(r.URL.Path, "/") // split the URL Path into chunks, whenever there's a "/"
-	field := pathArray[len(pathArray)-1]        // The part after the last "/", is the field
-	uniqueID := pathArray[len(pathArray)-2]     // The part after the second to last "/", is the unique ID
+	// The request has to be of GET type
+	if r.Method == "GET" {
+		pathArray := strings.Split(r.URL.Path, "/") // split the URL Path into chunks, whenever there's a "/"
+		field := pathArray[len(pathArray)-1]        // The part after the last "/", is the field
+		uniqueID := pathArray[len(pathArray)-2]     // The part after the second to last "/", is the unique ID
 
-	trackSliceURL := getTrackIndex(uniqueID)
+		trackSliceURL := getTrackIndex(uniqueID)
 
-	if trackSliceURL != "" { // Check whether the url is different from an empty string
+		if trackSliceURL != "" { // Check whether the url is different from an empty string
 
-		something := map[string]string{ // Map the field to one of the Track struct attributes in the igcFiles slice
-			"pilot":        igcFiles[trackSliceURL].track.Pilot,
-			"glider":       igcFiles[trackSliceURL].track.GliderType,
-			"glider_id":    igcFiles[trackSliceURL].track.GliderID,
-			"track_length": calculateTotalDistance(igcFiles[trackSliceURL].track),
-			"H_date":       igcFiles[trackSliceURL].track.Date.String(),
+			something := map[string]string{ // Map the field to one of the Track struct attributes in the igcFiles slice
+				"pilot":        igcFiles[trackSliceURL].track.Pilot,
+				"glider":       igcFiles[trackSliceURL].track.GliderType,
+				"glider_id":    igcFiles[trackSliceURL].track.GliderID,
+				"track_length": calculateTotalDistance(igcFiles[trackSliceURL].track),
+				"H_date":       igcFiles[trackSliceURL].track.Date.String(),
+			}
+
+			response := something[field] // This will work because the RegEx checks whether the name is written correctly
+			fmt.Fprintf(w, response)
+		} else {
+			w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
 		}
-
-		response := something[field] // This will work because the RegEx checks whether the name is written correctly
-		fmt.Fprintf(w, response)
 	} else {
 		w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
 	}
