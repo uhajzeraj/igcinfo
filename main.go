@@ -10,16 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"os"
 
 	igc "github.com/marni/goigc"
 )
-
-// Some .igc files URLs
-// http://skypolaris.org/wp-content/uploads/IGS%20Files/Madrid%20to%20Jerez.igc
-// http://skypolaris.org/wp-content/uploads/IGS%20Files/Jarez%20to%20Senegal.igc
-// http://skypolaris.org/wp-content/uploads/IGS%20Files/Boavista%20Medellin.igc
-// http://skypolaris.org/wp-content/uploads/IGS%20Files/Medellin%20Guatemala.igc
 
 // URLTrack - Keep track of the url used for adding the igc file
 type URLTrack struct {
@@ -142,12 +135,12 @@ func apiIgcHandler(w http.ResponseWriter, r *http.Request) {
 		var data map[string]string // POST body is of content-type: JSON; the result can be stored in a map
 		err := json.NewDecoder(r.Body).Decode(&data)
 		if err != nil {
-			panic(err)
+			return
 		}
 
 		track, err := igc.ParseLocation(data["url"]) // call the igc library
 		if err != nil {
-			panic(err)
+			return
 		}
 
 		// Check if track map contains the url
@@ -249,10 +242,10 @@ func apiIgcIDFieldHandler(w http.ResponseWriter, r *http.Request) {
 func urlRouter(w http.ResponseWriter, r *http.Request) {
 
 	urlMap := map[string]func(http.ResponseWriter, *http.Request){ // A map of accepted URL RegEx patterns
-		"^/igcinfo/api$":                      apiHandler,
-		"^/igcinfo/api/igc$":                   apiIgcHandler,
-		"^/igcinfo/api/igc/[a-zA-Z0-9]{3,10}$": apiIgcIDHandler,
-		"^/igcinfo/api/igc/[a-zA-Z0-9]{3,10}/(pilot|glider|glider_id|track_length|H_date)$": apiIgcIDFieldHandler,
+		"^/igcinfo/api$":                    apiHandler,
+		"^/igcinfo/api/igc$":                apiIgcHandler,
+		"^/igcinfo/api/igc/igc[0-9]{1,10}$": apiIgcIDHandler,
+		"^/igcinfo/api/igc/igc[0-9]{1,10}/(pilot|glider|glider_id|track_length|H_date)$": apiIgcIDFieldHandler,
 	}
 
 	result := regexMatches(r.URL.Path, urlMap) // Perform the RegEx check to see if any pattern matches
@@ -266,5 +259,5 @@ func urlRouter(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/", urlRouter) // Handle all the request via the urlRouter function
-	log.Fatal(http.ListenAndServe(":" + os.Getenv("PORT"), nil))
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
