@@ -132,7 +132,7 @@ func regexMatches(url string, urlMap map[string]func(http.ResponseWriter, *http.
 
 func apiIgcHandler(w http.ResponseWriter, r *http.Request) {
 
-	if r.Method == "POST" { // If method is POST, user has entered the URL
+	if r.Method == http.MethodPost { // If method is POST, user has entered the URL
 		var data map[string]string // POST body is of content-type: JSON; the result can be stored in a map
 		err := json.NewDecoder(r.Body).Decode(&data)
 		if err != nil {
@@ -156,9 +156,12 @@ func apiIgcHandler(w http.ResponseWriter, r *http.Request) {
 		response += "}"
 
 		w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
-		fmt.Fprintf(w, response)
+		_, err = fmt.Fprintf(w, response)
+		if err != nil {
+			return
+		}
 
-	} else if r.Method == "GET" { // If the method is GET
+	} else if r.Method == http.MethodGet { // If the method is GET
 		w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
 
 		x := 0 // Just some numeric iterator
@@ -183,7 +186,7 @@ func apiIgcHandler(w http.ResponseWriter, r *http.Request) {
 func apiHandler(w http.ResponseWriter, r *http.Request) {
 
 	// The request has to be of GET type
-	if r.Method == "GET" {
+	if r.Method == http.MethodGet {
 		w.Header().Set("Content-Type", "application/json") // Set response content-type to JSON
 
 		timeNow := int(time.Now().Unix()) // Unix timestamp when the handler was called
@@ -195,7 +198,11 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 		response += "\"info\": \"Service for IGC tracks.\","
 		response += "\"version\": \"v1\""
 		response += "}"
-		fmt.Fprintln(w, response)
+
+		_, err := fmt.Fprintln(w, response)
+		if err != nil {
+			return
+		}
 	} else {
 		w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
 	}
@@ -204,7 +211,7 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 func apiIgcIDHandler(w http.ResponseWriter, r *http.Request) {
 
 	// The request has to be of GET type
-	if r.Method == "GET" {
+	if r.Method == http.MethodGet {
 		urlID := path.Base(r.URL.Path) // returns the part after the last '/' in the url
 
 		trackSliceURL := getTrackIndex(urlID)
@@ -219,7 +226,10 @@ func apiIgcIDHandler(w http.ResponseWriter, r *http.Request) {
 			response += "\"track_length\": " + "\"" + calculateTotalDistance(igcFiles[trackSliceURL].track) + "\"" // TO-DO, calculate the track length?
 			response += "}"
 
-			fmt.Fprintf(w, response)
+			_, err := fmt.Fprintf(w, response)
+			if err != nil {
+				return
+			}
 		} else {
 			w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
 		}
@@ -231,7 +241,7 @@ func apiIgcIDHandler(w http.ResponseWriter, r *http.Request) {
 func apiIgcIDFieldHandler(w http.ResponseWriter, r *http.Request) {
 
 	// The request has to be of GET type
-	if r.Method == "GET" {
+	if r.Method == http.MethodGet {
 		pathArray := strings.Split(r.URL.Path, "/") // split the URL Path into chunks, whenever there's a "/"
 		field := pathArray[len(pathArray)-1]        // The part after the last "/", is the field
 		uniqueID := pathArray[len(pathArray)-2]     // The part after the second to last "/", is the unique ID
@@ -249,7 +259,10 @@ func apiIgcIDFieldHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			response := something[field] // This will work because the RegEx checks whether the name is written correctly
-			fmt.Fprintf(w, response)
+			_, err := fmt.Fprintf(w, response)
+			if err != nil {
+				return
+			}
 		} else {
 			w.WriteHeader(http.StatusNotFound) // If it isn't, send a 404 Not Found status
 		}
